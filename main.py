@@ -1,3 +1,4 @@
+'''{python}
 import numpy as np
 
 
@@ -106,3 +107,4 @@ min_max_Savage(matrix)
 
 print('\n\nКритерій Гурвіца, коефіцієнт песимізму p = 0.6')
 Hurwitz(matrix)
+'''
