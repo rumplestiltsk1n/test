@@ -1,108 +1,131 @@
 import numpy as np
 
 
-# Введення матриці втрат
-def input_matrix():
-    rows = []
-    row = list(map(int, input('Введіть матрицю втрат\n').split()))
-
-    while row:  # поки рядок не пустий
-        rows.append(row)
-        row = list(map(int, input().split()))
-
-    return np.array(rows)
+# Чи унікальні всі значення масиву
+def is_unique(array):
+    return len(array) == len(set(array))
 
 
-matrix = input_matrix()
-# matrix = np.array([[20, 12, 15, 15],
-#                    [14, 23, 12, 26],
-#                    [25, 21, 24, 30]])
+# Підрахунок кількості оцінок по рядкам
+def count_occurrences(row):
+    unique, counts = np.unique(row, return_counts=True)
 
-num_rows = matrix.shape[0]  # кількість рядків
-num_cols = matrix.shape[1]  # кількість стовпців
+    dictionary = dict(zip(unique, counts))  # словник {ранг: кількість повторень}
+    array = np.array(list(dictionary.values()))  # значення tij по рядкам
 
+    print(dictionary)
+    # print(array)
 
-# Критерій Вальда
-def min_max_Wald(matrix):
-    # Максимуми рядків
-    row_max = matrix.max(axis=1)
-
-    print('\nМатриця втрат')
-    print(matrix)
-
-    print('\nМаксимуми рядків')
-    for i in range(num_rows):
-        print(matrix[i], '\t', row_max[i])  # [рядок] максимум
-
-    print('\nМінімум з максимумів', np.min(row_max))
-    print('Стратегія', np.argmin(row_max) + 1)
+    return np.sum(array ** 3 - array)
 
 
-# Матриця ризиків
-def get_risk_matrix(matrix):
-    print('Початкова матриця втрат')
-    print(matrix)
+# Стандартизація масиву
+def standardize(array):
+    # Шкала строга (всі оцінки унікальні)
+    if is_unique(array):
+        return array
+    else:
+        ranks_copy = np.copy(array)  # копія вхідного масиву
+        result = np.zeros(len(array))  # ініціалізація результуючого масиву 0-ми
 
-    col_min = matrix.min(axis=0)  # мінімуми стовпців
-    print(' ', ' '.join(map(str, col_min)), 'мінімуми стовпців ßj (віднімаються від елементів матриці втрат aij)')
+        # Стандартизовані індекси
+        M = np.array([], dtype=int)
 
-    risk_matrix = np.copy(matrix)
-    for i in range(num_rows):
-        for j in range(num_cols):
-            risk_matrix[i][j] -= col_min[j]  # відняти мінімуми стовпців від елементів
+        # Кількість не стандартизованих рангів
+        delta = len(array)
 
-    print('\nМатриця ризиків')
-    print(risk_matrix)
+        while len(M) < len(array):
+            # Індекси максимальних рангів (не стандартизованих)
+            L = np.ndarray.flatten(np.argwhere(ranks_copy == ranks_copy.max()))
 
-    return risk_matrix
+            for i in L:
+                result[i] = delta - (len(L) - 1) / 2  # стандартизоване значення
+                M = np.append(M, i)
+                ranks_copy[i] = -1
 
+            delta -= len(L)
 
-# Критерій Севіджа
-def min_max_Savage(matrix):
-    print('Знаходимо матрицю ризиків')
-    risk_matrix = get_risk_matrix(matrix)
-
-    # Максимуми рядків
-    row_max = risk_matrix.max(axis=1)
-
-    print('\nМаксимуми рядків матриці ризиків')
-    for i in range(num_rows):
-        print(risk_matrix[i], '\t', row_max[i])  # [рядок] максимум
-
-    print('\nМінімум з максимумів', np.min(row_max))
-    print('Стратегія', np.argmin(row_max) + 1)
+        return result
 
 
-# # Критерій Гурвіца
-def Hurwitz(matrix, p=0.6):  # коефіцієнт песимізму 0.6 за замовчуванням
-    print('Ha = min{p*min aij + (1-p)*max aij}')
+# Обчислення коефіцієнту конкордації
+def concordance_coefficient(matrix, is_standardized):
+    S = np.sum((np.sum(matrix, axis=0) - m * (n + 1) / 2) ** 2)
 
-    row_min = matrix.min(axis=1)  # мінімуми рядків
-    row_max = matrix.max(axis=1)  # максимуми рядків
+    # Якщо є не стандартизовані рядки
+    if is_standardized:
+        return 12 * S / (m ** 2 * (n ** 3 - n))
 
-    print('Мінімуми рядків матриці втрат')
-    for i in range(num_rows):
-        print(matrix[i], '\t', row_min[i])  # [рядок] максимум
-
-    print('Максимуми рядків матриці втрат')
-    for i in range(num_rows):
-        print(matrix[i], '\t', row_max[i])  # [рядок] максимум
-
-    row_results = np.zeros(num_rows)  # результати обчислень по рядкам
-    print('Обчислення по рядкам')
-    for i in range(num_rows):
-        row_results[i] = p * row_min[i] + (1 - p) * row_max[i]
-        print(p, '*', row_min[i], '+ ( 1 -', p, ') *', row_max[i], '=', row_results[i])
-
-    print('\nМінімум з обчислених по рядкам значень', np.min(row_results))
-    print('Стратегія', np.argmin(row_results) + 1)
+    else:
+        print('\nОцінки, що повторюються {ранг: кількість повторень}')
+        Tj = np.apply_along_axis(count_occurrences, axis=1, arr=matrix)  # сума tij по рядкам
+        W = 12 * S / (m ** 2 * (n ** 3 - n) - m * np.sum(Tj))
+        return W
 
 
-print('Критерій Вальда')
-min_max_Wald(matrix)
+# Виведення рядка та його суми
+def row_sum(row):
+    print(f'{row} {row.sum()}')
 
-print('\n\nКритерій Севіджа')
-min_max_Savage(matrix)
 
-print('\n\nКритерій Гурвіца, коефіцієнт песимізму p = 0.6')
-Hurwitz(matrix)
+# Виведення результатів обчислення χ²
+def x_squared(W):
+    X2 = m * (n - 1) * W
+    print('Значущість коефіцієнта конкордації оцінюється χ² розподілом')
+    print(f'χ² = {X2:.3f}')
+    print('χ²кр = 23.2 при рівні значущості α=0.01 та числі ступенів свободи φ=n-1=10')
+    if X2 > 23.2:
+        print('χ² > χ²кр гіпотеза про узгодженість думок всієї групи експертів приймається')
+    else:
+        print('χ² < χ²кр гіпотеза про узгодженість думок всієї групи експертів не приймається')
+
+
+matrix = np.array([
+    [3, 2, 2, 2, 3, 3, 4, 6, 1, 4, 5],
+    [1, 2, 3, 6, 9, 10, 7, 9, 4, 5, 8],
+    [1, 4, 4, 7, 6, 8, 11, 5, 3, 2, 9],
+    [3, 3, 4, 1, 8, 8, 5, 8, 6, 2, 7],
+    [2, 7, 1, 6, 5, 6, 2, 8, 3, 5, 4],
+    [1, 1, 3, 2, 3, 3, 4, 6, 2, 5, 4],
+    [1, 1, 2, 2, 4, 3, 4, 5, 2, 2, 4],
+    [1, 2, 3, 3, 3, 3, 4, 2, 3, 4, 4],
+    [1, 3, 4, 3, 3, 4, 4, 2, 4, 5, 2],
+    [1, 4, 4, 2, 4, 4, 4, 3, 3, 5, 6],
+    [2, 4, 5, 6, 1, 7, 7, 3, 4, 5, 8],
+    [2, 1, 4, 3, 2, 6, 1, 7, 3, 5, 3],
+    [3, 2, 1, 5, 6, 2, 3, 3, 4, 5, 6],
+    [3, 2, 1, 2, 6, 7, 5, 6, 4, 6, 8],
+    [2, 1, 3, 5, 7, 8, 8, 3, 4, 6, 2],
+    [1, 5, 3, 5, 6, 6, 6, 2, 4, 6, 5],
+    [1, 4, 2, 5, 7, 8, 6, 2, 3, 3, 9],
+    [1, 4, 2, 3, 5, 5, 5, 7, 3, 5, 6]
+])
+
+print('Початкова матриця з сумами рядків')
+np.apply_along_axis(row_sum, axis=1, arr=matrix)
+
+# Матриця m x n
+m = matrix.shape[0]  # кількість рядків (експертів)
+n = matrix.shape[1]  # кількість стовпців (оцінок)
+
+# Коефіцієнт конкордації без стандартизації
+W = concordance_coefficient(matrix, is_standardized=False)
+print(f'\nКоефіцієнт конкордації без стандартизації W = {W:.3f}')
+
+# χ^2 розподіл
+x_squared(W)
+
+
+# Стандартизація рядків матриці
+standardized_matrix = np.apply_along_axis(standardize, axis=1, arr=matrix)
+
+print('\nСтандартизована матриця з сумами рядків')
+np.apply_along_axis(row_sum, axis=1, arr=standardized_matrix)
+# print(np.sum(standardized_matrix, axis=1))  # check sum
+
+# Коефіцієнт конкордації
+W = concordance_coefficient(standardized_matrix, is_standardized=True)
+print(f'Коефіцієнт конкордації стандартизованих рядків W = {W:.3f}')
+
+# χ² розподіл
+x_squared(W)
